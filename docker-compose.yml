@@ -1,0 +1,84 @@
+version: '3.8'
+
+volumes: 
+  pgdata:
+  static:
+  media:
+  ssl_cetr:
+  ssl_var:
+  web-root:
+
+services:
+  app: &app
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    environment:
+      - DJANGO_SETTINGS_MODULE=fake_data_project.settings
+      - LC_ALL=C.UTF-8
+      - LANG=C.UTF-8
+    volumes:
+      - static:/opt/app/static
+      - media:/opt/app/media
+    depends_on:
+      - postgres
+    ports:
+      - 127.0.0.1:8000:8000
+    command: gunicorn -w 4 fake_data_project.wsgi -b 0.0.0.0:8000
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    volumes:
+      - static:/opt/app/static
+      - media:/opt/app/media
+      - ssl_cetr:/etc/letsencrypt/
+      - ssl_var:/var/lib/letsencrypt
+      - web-root:/var/www/html
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - 80:80
+      - 443:443
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+        - ssl_cetr:/etc/letsencrypt/
+        - ssl_var:/var/lib/letsencrypt
+        - web-root:/var/www/html
+    depends_on:
+      - nginx
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  postgres:
+    image: postgres:12.4
+    environment:
+      POSTGRES_USER: fake_data_user
+      POSTGRES_DB: fake_data_db
+      POSTGRES_PASSWORD: kpZ~nt&Y2cT>u37>
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - 127.0.0.1:5432:5432
+  
+  redis:
+    build: 
+      context: .
+      dockerfile: docker/redis/Dockerfile
+    restart: always
+    ports:
+      - 127.0.0.1:6379:6379
+    command: redis-server /usr/local/etc/redis/redis.conf
+  
+  celery_worker:
+    <<: *app
+    command: celery -A fake_data_project worker -l INFO
+    ports: []
+    restart: always
+    depends_on:
+      - redis
+      - postgres
