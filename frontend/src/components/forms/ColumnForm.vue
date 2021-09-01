@@ -41,9 +41,6 @@
 </template>
 
 <script>
-// import axiosApi from '../axios-api'
-
-
 export default {
     name: "columnForm",
     data() {

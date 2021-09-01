@@ -38,11 +38,6 @@ export default {
     },
     methods: {
         async createDataSet() {
-            // if (this.dataSet.num_row.includes('-')) {
-            //     return this.$toast.error("Please, correct the mistake! ROW NUMBER can't be negative number.", {
-            //         position: 'top'
-            //     });
-            // }
             await axiosApi.post(`/schema/${this.$route.params.id}/data-sets/`, this.dataSet)
             .then(response => {
                 this.creatingCSV = true
